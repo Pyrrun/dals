@@ -56,26 +56,26 @@ def resolve_status(train_status):
 def dice_hard(output, target, threshold=0.5, axis=(1, 2, 3), smooth=1e-5):
     output = tf.cast(output > threshold, dtype=tf.float32)
     target = tf.cast(target > threshold, dtype=tf.float32)
-    inse = tf.reduce_sum(tf.multiply(output, target), axis=axis)
-    l = tf.reduce_sum(output, axis=axis)
-    r = tf.reduce_sum(target, axis=axis)
+    inse = tf.reduce_sum(input_tensor=tf.multiply(output, target), axis=axis)
+    l = tf.reduce_sum(input_tensor=output, axis=axis)
+    r = tf.reduce_sum(input_tensor=target, axis=axis)
     hard_dice = (2. * inse + smooth) / (l + r + smooth)
-    hard_dice = tf.reduce_mean(hard_dice, name='hard_dice')
+    hard_dice = tf.reduce_mean(input_tensor=hard_dice, name='hard_dice')
 
     return hard_dice
 
 def dice_soft(output, target, loss_type='jaccard', axis=(1, 2, 3), smooth=1e-5):
-    inse = tf.reduce_sum(output * target, axis=axis)
+    inse = tf.reduce_sum(input_tensor=output * target, axis=axis)
     if loss_type == 'jaccard':
-        l = tf.reduce_sum(output * output, axis=axis)
-        r = tf.reduce_sum(target * target, axis=axis)
+        l = tf.reduce_sum(input_tensor=output * output, axis=axis)
+        r = tf.reduce_sum(input_tensor=target * target, axis=axis)
     elif loss_type == 'sorensen':
-        l = tf.reduce_sum(output, axis=axis)
-        r = tf.reduce_sum(target, axis=axis)
+        l = tf.reduce_sum(input_tensor=output, axis=axis)
+        r = tf.reduce_sum(input_tensor=target, axis=axis)
     else:
         raise Exception("Unknow loss_type")
     dice = (2. * inse + smooth) / (l + r + smooth)
-    dice = tf.reduce_mean(dice, name='dice_coe')
+    dice = tf.reduce_mean(input_tensor=dice, name='dice_coe')
 
     return dice
 

@@ -35,10 +35,10 @@ init_seg_add = './dataset/demo_brain/img1_initseg.npy'
 
 
 def re_init_phi(phi, dt):
-    D_left_shift = tf.cast(tf.manip.roll(phi, -1, axis=1), dtype='float32')
-    D_right_shift = tf.cast(tf.manip.roll(phi, 1, axis=1), dtype='float32')
-    D_up_shift = tf.cast(tf.manip.roll(phi, -1, axis=0), dtype='float32')
-    D_down_shift = tf.cast(tf.manip.roll(phi, 1, axis=0), dtype='float32')
+    D_left_shift = tf.cast(tf.roll(phi, -1, axis=1), dtype='float32')
+    D_right_shift = tf.cast(tf.roll(phi, 1, axis=1), dtype='float32')
+    D_up_shift = tf.cast(tf.roll(phi, -1, axis=0), dtype='float32')
+    D_down_shift = tf.cast(tf.roll(phi, 1, axis=0), dtype='float32')
     bp = D_left_shift - phi
     cp = phi - D_down_shift
     dp = D_up_shift - phi
@@ -55,18 +55,18 @@ def re_init_phi(phi, dt):
     bn = tf.clip_by_value(bn, -10 ^ 38, 0)
     cn = tf.clip_by_value(cn, -10 ^ 38, 0)
     dn = tf.clip_by_value(dn, -10 ^ 38, 0)
-    area_pos = tf.where(phi > 0)
-    area_neg = tf.where(phi < 0)
+    area_pos = tf.compat.v1.where(phi > 0)
+    area_neg = tf.compat.v1.where(phi < 0)
     pos_y = area_pos[:, 0]
     pos_x = area_pos[:, 1]
     neg_y = area_neg[:, 0]
     neg_x = area_neg[:, 1]
-    tmp1 = tf.reduce_max([tf.square(tf.gather_nd(t, area_pos)) for t in [ap, bn]], axis=0)
-    tmp1 += tf.reduce_max([tf.square(tf.gather_nd(t, area_pos)) for t in [cp, dn]], axis=0)
+    tmp1 = tf.reduce_max(input_tensor=[tf.square(tf.gather_nd(t, area_pos)) for t in [ap, bn]], axis=0)
+    tmp1 += tf.reduce_max(input_tensor=[tf.square(tf.gather_nd(t, area_pos)) for t in [cp, dn]], axis=0)
     update1 = tf.sqrt(tf.abs(tmp1)) - 1
     indices1 = tf.stack([pos_y, pos_x], 1)
-    tmp2 = tf.reduce_max([tf.square(tf.gather_nd(t, area_neg)) for t in [an, bp]], axis=0)
-    tmp2 += tf.reduce_max([tf.square(tf.gather_nd(t, area_neg)) for t in [cn, dp]], axis=0)
+    tmp2 = tf.reduce_max(input_tensor=[tf.square(tf.gather_nd(t, area_neg)) for t in [an, bp]], axis=0)
+    tmp2 += tf.reduce_max(input_tensor=[tf.square(tf.gather_nd(t, area_neg)) for t in [cn, dp]], axis=0)
     update2 = tf.sqrt(tf.abs(tmp2)) - 1
     indices2 = tf.stack([neg_y, neg_x], 1)
     indices_final = tf.concat([indices1, indices2], 0)
@@ -79,7 +79,7 @@ def re_init_phi(phi, dt):
 
 
 def get_curvature(phi, x, y):
-    phi_shape = tf.shape(phi)
+    phi_shape = tf.shape(input=phi)
     dim_y = phi_shape[0]
     dim_x = phi_shape[1]
     x = tf.cast(x, dtype="int32")
@@ -115,8 +115,8 @@ def get_curvature(phi, x, y):
 
 
 def get_intensity(image, masked_phi, filter_patch_size=5):
-    u_1 = tf.layers.average_pooling2d(tf.multiply(image, masked_phi), [filter_patch_size, filter_patch_size], 1,padding='SAME')
-    u_2 = tf.layers.average_pooling2d(masked_phi, [filter_patch_size, filter_patch_size], 1, padding='SAME')
+    u_1 = tf.compat.v1.layers.average_pooling2d(tf.multiply(image, masked_phi), [filter_patch_size, filter_patch_size], 1,padding='SAME')
+    u_2 = tf.compat.v1.layers.average_pooling2d(masked_phi, [filter_patch_size, filter_patch_size], 1, padding='SAME')
     u_2_prime = 1 - tf.cast((u_2 > 0), dtype='float32') + tf.cast((u_2 < 0), dtype='float32')
     u_2 = u_2 + u_2_prime + 2.220446049250313e-16
 
@@ -131,11 +131,11 @@ def active_contour_layer(elems):
     wind_coef = 3
     zero_tensor = tf.constant(0, shape=[], dtype="int32")
     def _body(i, phi_level):
-        band_index = tf.reduce_all([phi_level <= narrow_band_width, phi_level >= -narrow_band_width], axis=0)
-        band = tf.where(band_index)
+        band_index = tf.reduce_all(input_tensor=[phi_level <= narrow_band_width, phi_level >= -narrow_band_width], axis=0)
+        band = tf.compat.v1.where(band_index)
         band_y = band[:, 0]
         band_x = band[:, 1]
-        shape_y = tf.shape(band_y)
+        shape_y = tf.shape(input=band_y)
         num_band_pixel = shape_y[0]
         window_radii_x = tf.ones(num_band_pixel) * wind_coef
         window_radii_y = tf.ones(num_band_pixel) * wind_coef
@@ -156,14 +156,14 @@ def active_contour_layer(elems):
             local_window_y_max = tf.minimum(tf.cast(input_image_size - 1, dtype="int32"), local_window_y_max)
             local_image = img[local_window_y_min: local_window_y_max + 1,local_window_x_min: local_window_x_max + 1]
             local_phi = phi_prime[local_window_y_min: local_window_y_max + 1,local_window_x_min: local_window_x_max + 1]
-            inner = tf.where(local_phi <= 0)
-            area_inner = tf.cast(tf.shape(inner)[0], dtype='float32')
-            outer = tf.where(local_phi > 0)
-            area_outer = tf.cast(tf.shape(outer)[0], dtype='float32')
+            inner = tf.compat.v1.where(local_phi <= 0)
+            area_inner = tf.cast(tf.shape(input=inner)[0], dtype='float32')
+            outer = tf.compat.v1.where(local_phi > 0)
+            area_outer = tf.cast(tf.shape(input=outer)[0], dtype='float32')
             image_loc_inner = tf.gather_nd(local_image, inner)
             image_loc_outer = tf.gather_nd(local_image, outer)
-            mean_intensity_inner = tf.cast(tf.divide(tf.reduce_sum(image_loc_inner), area_inner), dtype='float32')
-            mean_intensity_outer = tf.cast(tf.divide(tf.reduce_sum(image_loc_outer), area_outer), dtype='float32')
+            mean_intensity_inner = tf.cast(tf.divide(tf.reduce_sum(input_tensor=image_loc_inner), area_inner), dtype='float32')
+            mean_intensity_outer = tf.cast(tf.divide(tf.reduce_sum(input_tensor=image_loc_outer), area_outer), dtype='float32')
             mean_intensities_inner = tf.concat(axis=0, values=[mean_intensities_inner[:j], [mean_intensity_inner]])
             mean_intensities_outer = tf.concat(axis=0, values=[mean_intensities_outer[:j], [mean_intensity_outer]])
 
@@ -172,8 +172,8 @@ def active_contour_layer(elems):
         if fast_lookup:
             phi_4d = phi_level[tf.newaxis, :, :, tf.newaxis]
             image = img[tf.newaxis, :, :, tf.newaxis]
-            band_index_2 = tf.reduce_all([phi_4d <= narrow_band_width, phi_4d >= -narrow_band_width], axis=0)
-            band_2 = tf.where(band_index_2)
+            band_index_2 = tf.reduce_all(input_tensor=[phi_4d <= narrow_band_width, phi_4d >= -narrow_band_width], axis=0)
+            band_2 = tf.compat.v1.where(band_index_2)
             u_inner = get_intensity(image, tf.cast((([phi_4d <= 0])), dtype='float32')[0], filter_patch_size=f_size)
             u_outer = get_intensity(image, tf.cast((([phi_4d > 0])), dtype='float32')[0], filter_patch_size=f_size)
             mean_intensities_inner = tf.gather_nd(u_inner, band_2)
@@ -184,8 +184,8 @@ def active_contour_layer(elems):
             mean_intensities_outer = tf.constant([0], dtype='float32')
             j = tf.constant(0, dtype=tf.int32)
             _, mean_intensities_outer, mean_intensities_inner = tf.while_loop(
-                lambda j, mean_intensities_outer, mean_intensities_inner:
-                j < num_band_pixel, body_intensity, loop_vars=[j, mean_intensities_outer, mean_intensities_inner],
+                cond=lambda j, mean_intensities_outer, mean_intensities_inner:
+                j < num_band_pixel, body=body_intensity, loop_vars=[j, mean_intensities_outer, mean_intensities_inner],
                 shape_invariants=[j.get_shape(), tf.TensorShape([None]), tf.TensorShape([None])])
 
         lambda1 = tf.gather_nd(map_lambda1_acl, [band])
@@ -195,9 +195,9 @@ def active_contour_layer(elems):
         term1 = tf.multiply(tf.cast(lambda1, dtype='float32'),tf.square(tf.gather_nd(img, [band]) - mean_intensities_inner))
         term2 = tf.multiply(tf.cast(lambda2, dtype='float32'),tf.square(tf.gather_nd(img, [band]) - mean_intensities_outer))
         force = -nu + term1 - term2
-        force /= (tf.reduce_max(tf.abs(force)))
+        force /= (tf.reduce_max(input_tensor=tf.abs(force)))
         d_phi_dt = tf.cast(force, dtype="float32") + tf.cast(mu * kappa, dtype="float32")
-        dt = .45 / (tf.reduce_max(tf.abs(d_phi_dt)) + 2.220446049250313e-16)
+        dt = .45 / (tf.reduce_max(input_tensor=tf.abs(d_phi_dt)) + 2.220446049250313e-16)
         d_phi = dt * d_phi_dt
         update_narrow_band = d_phi
         phi_prime = phi_level + tf.scatter_nd([band], tf.cast(update_narrow_band, dtype='float32'),shape=[input_image_size, input_image_size])
@@ -207,13 +207,13 @@ def active_contour_layer(elems):
 
     i = tf.constant(0, dtype=tf.int32)
     phi = init_phi
-    _, phi = tf.while_loop(lambda i, phi: i < iter_limit, _body, loop_vars=[i, phi])
+    _, phi = tf.while_loop(cond=lambda i, phi: i < iter_limit, body=_body, loop_vars=[i, phi])
     phi = tf.round(tf.cast((1 - tf.nn.sigmoid(phi)), dtype=tf.float32))
 
     return phi,init_phi, map_lambda1_acl, map_lambda2_acl
 
 fast_lookup = True
-config = tf.ConfigProto(allow_soft_placement=True)
+config = tf.compat.v1.ConfigProto(allow_soft_placement=True)
 input_shape = [args.batch_size, args.img_resize, args.img_resize, 1]
 input_shape_dt = [args.batch_size, args.img_resize, args.img_resize]
 iter_limit = args.acm_iter_limit
@@ -222,21 +222,21 @@ mu = args.mu
 nu = args.nu
 f_size = args.f_size
 input_image_size = args.img_resize
-x = tf.placeholder(shape=input_shape, dtype=tf.float32, name="x")
-y = tf.placeholder(dtype=tf.float32, name="y")
-out_seg = tf.placeholder(dtype=tf.float32, name="out_seg")
-phase = tf.placeholder(tf.bool, name='phase')
+x = tf.compat.v1.placeholder(shape=input_shape, dtype=tf.float32, name="x")
+y = tf.compat.v1.placeholder(dtype=tf.float32, name="y")
+out_seg = tf.compat.v1.placeholder(dtype=tf.float32, name="out_seg")
+phase = tf.compat.v1.placeholder(tf.bool, name='phase')
 global_step = tf.Variable(0, name='global_step', trainable=False)
 map_lambda1 = tf.exp(tf.divide(tf.subtract(2.0,out_seg),tf.add(1.0,out_seg)))
 map_lambda2 = tf.exp(tf.divide(tf.add(1.0, out_seg), tf.subtract(2.0, out_seg)))
 y_out_dl = tf.round(out_seg)
 x_acm = x[:, :, :, 0]
 rounded_seg_acl = y_out_dl[:, :, :, 0]
-dt_trans = tf.py_func(my_func, [rounded_seg_acl], tf.float32)
+dt_trans = tf.compat.v1.py_func(my_func, [rounded_seg_acl], tf.float32)
 dt_trans.set_shape([args.batch_size, input_image_size, input_image_size])
 phi_out,_, lambda1_tr, lambda2_tr = tf.map_fn(fn=active_contour_layer, elems=(x_acm, dt_trans, map_lambda1[:, :, :, 0], map_lambda2[:, :, :, 0]))
 rounded_seg = tf.round(out_seg)
-with tf.Session(config=config) as sess:
+with tf.compat.v1.Session(config=config) as sess:
 
     print("########### Inference ############")
 
